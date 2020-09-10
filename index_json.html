@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>myMemoPad</title>
+<script src="js/jquery-2.1.3.min.js"></script>
+<link rel="stylesheet" href="css/sample.css">
+</head>
+<body>
+<header>
+<h1>MemoPad(json形式)</h1>
+</header>
+<main style="display:none">
+    <input type="text" id="key">
+    <textarea id="memo"></textarea>
+    <ul>
+        <li id="save">1.save</li>
+        <li id="delete">2.delete</li>
+        <li id="view">3.reloard</li>
+        <li id="clear">4.clear</li>
+    </ul>
+</main>
+<table id="list" style="display:none">
+<!-- ここに追加データが挿入される -->
+
+</table>
+
+<script>
+$("main").fadeIn(1000);
+$("#list").fadeIn(1500);
+
+// $(document).keypress(function(event){
+//   if( event.which === 13 ) {
+//     $("main").fadeIn(1000);
+//   }
+// });
+
+// ====================================
+// 
+// 下記の関数を設計
+//
+// 1.テーブルリストの更新
+// 2.inputと textareaの 0リセット
+// 3.localStorageのkey最大値を返す（削除データのkey番号が消えるため、localStorageのkey最大値を取得
+
+// ----------------------------------
+//  関数：1.テーブルリストの更新
+// ----------------------------------
+function list_reload(){
+
+    $("#list").empty();
+
+    if(localStorage.length>0){
+
+        let init_html ='<tr class="tb_header"><th># title</th><th># contents</th></tr>';
+        $("#list").append(init_html);
+
+        let title = [];
+        let contents = [];
+
+        for(let i=0; i< localStorage.length; i++){
+
+            let k = localStorage.key(i);
+            let v = localStorage.getItem(k);
+            v = JSON.parse(v);
+            title[k] = v[0]['title'];
+            contents[k] = v[0]['contents'];
+            // console.log(v[0]['title'],v[0]['contents']);
+        }
+
+        for(let i=0; i<title.length; i++){
+
+            if(title[i] !== undefined ){
+
+                let html ='<tr class="row"><td id="ttl_'+i+'"><label><input type="checkbox" name="memolists" value="'+i+'">'+title[i]+'</td></label><td id="con_'+i+'">'+contents[i]+'</td></tr>';
+                $("#list").append(html);
+            }
+        }
+    }
+}
+
+// ----------------------------------
+//  関数：2.inputと textareaの 0リセット
+// ----------------------------------
+function reset_textbox(){
+
+    $("#key").val(''); //.empty()で消えなかったため・・・
+    $("#memo").val(''); //.empty()で消えなかったため・・・
+}
+
+// ----------------------------------
+//  関数：3.localStorageのkey最大値を返す（削除データのkey番号が消えるため、localStorageのkey最大値を取得
+//       最大値の算出パートはWEB上のパクリです、理解が宿題。
+// ----------------------------------
+function return_max_key_value(){
+
+    const aryMax = function (a, b) {return Math.max(a, b);}
+    const aryMin = function (a, b) {return Math.min(a, b);}
+
+    let max_num = [];
+
+    for(let i=0; i<localStorage.length; i++){
+        max_num.push(localStorage.key(i));
+    }
+    if(max_num.length == 0){
+
+        return(0);
+    }else{
+
+        let ary = max_num;
+        let max = ary.reduce(aryMax);
+        let min = ary.reduce(aryMin);
+        return(max);
+    }
+}
+
+// ====================================
+//1.Save クリックイベント（セーブ）
+// 
+// inputおよびtextareaで片方のみ入力の場合に、(no title/contens)を追記するよう設定
+// inputおよびtextareaの両方が未入力の場合は、追記されないよう設定
+// table途中の一行を消すと並び順がリセットされるため？入力順を保持する用に番号が繰り上がる(ナンバリング)の仕組みを構成。
+// 合わせて、localStorageのデータ構造を工夫。keyにナンバリング番号、ValueにJSON形式でデータ（title contents）をもたせた。
+// 結果、JSON形式データを活用することで、データの列数を増やせるため、データの拡張性の部分を実践できた。
+
+$("#save").on("click",function(){
+
+    let k = $("#key").val();
+    let v = $("#memo").val();
+    let itm = [];
+    reset_textbox();
+
+    if(!k){
+        k = "(no title)";
+    }
+    if(!v){
+        v = "(no contents)";
+    }
+
+    let key_num = return_max_key_value();
+
+    if(k != "(no title)" || v != "(no contents)"){
+        // console.log(localStorage.length);
+        itm.push({title:k,contents:v}); // 表示順の制御：json形式でデータ作成
+        localStorage.setItem(key_num + 1 , JSON.stringify(itm));//このときのkeyにlocalStorageのkey最大値を持ってこないといけない
+        // localStorage.setItem(k,v);
+    }
+
+    list_reload(); // 表テーブルの更新
+});
+
+// ====================================
+//2.clear クリックイベント（クリア）
+
+$("#clear").on("click",function(){
+
+    localStorage.clear();
+    $("#list").empty();
+});
+
+// ====================================
+//3.0.ページ読み込み：保存データ取得表示（デフォルト）
+
+    list_reload(); // 表テーブルの更新
+
+// ====================================
+//3.ページ読み込み：保存データ取得表示（リロード）
+
+$("#view").on("click",function(){
+
+    list_reload(); // 表テーブルの更新
+    $("#list").fadeIn(1000);
+});
+
+// ====================================
+//4. リスト上で選択したものを、テキストボックスに表示（選択箇所の内容表示）
+//
+// 課題：リロード時には機能するが、追加や削除後には巧く機能しない・・・要改善
+// 
+
+$("#list td").on("click",function(){ // ポイント「#list td」によりテーブルデータ(td)の選択を検知
+
+    // console.log("ここまでは来ている");
+
+    if($(this).attr("id").indexOf('ttl') !=-1){ // indexOf:選択したセルがtitleかcontentsか識別のため
+        // titleを選択の場合
+        let k = $(this).text();
+        let v = $(this).next().text();
+        $("#key").val(k);   //inputセルは「val」で代入の作法らしい
+        $("#memo").text(v);
+        // console.log(k);
+    }else{
+        // contentsを選択の場合
+        let k = $(this).prev().text();
+        let v = $(this).text();
+        $("#key").val(k);
+        $("#memo").text(v);
+        // console.log(k,v);
+    }
+});
+
+// ====================================
+//5. textとtextareaに表示したデータを削除(デリート)
+//   チェックボックスにチェックしたデータを削除
+// 
+
+$("#delete").on("click",function(){
+
+    // textとtextareaに表示したデータを削除 
+    let k = $("#key").val();
+    let v = $("#memo").val();
+    localStorage.removeItem(k);
+
+    // チェックボックスにチェックしたデータを削除
+    let chk = [];
+    $('input:checked').each(function(){
+        chk.push($(this).val());
+        // console.log(chk);
+    });
+    for(let i=0; i<chk.length; i++){
+        localStorage.removeItem(chk[i]);
+    }
+
+    reset_textbox();
+    list_reload(); // 表テーブルの更新
+});
+
+</script>
+<footer><small>G's</small></footer>
+</body>
+</html>
